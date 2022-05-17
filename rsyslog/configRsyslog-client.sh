@@ -1,20 +1,24 @@
 #!/bin/sh
-remoteIPPORT=""
+serverIP=""
+port=""
 logFiles=logFilesList
 
 configFile=/etc/rsyslog.conf
 configFileDefault=/etc/rsyslog.d/50-default.conf
 localName=local0
 
+serverIPPORT=$serverIP:$port
+
 argsCount=$#
 countLog=0
 restartRsyslog=0
 
 checkIP(){
-	if [ "$remoteIPPORT" = "" ];then
-		echo "Please add remoteIPPORT to $0"
+	if [ "$serverIP" = "" ] || [ "$port" = "" ];then
+		echo "Please add serverIP or port to $0"
 		exit
 	fi
+	serverIPPORT=$serverIP:$port
 }
 
 #check rsyslog version and config file
@@ -97,15 +101,13 @@ checkConfig(){
 	grep "module(load=\"imfile\" PollingInterval" $configFile >/dev/null
 	if [ $? != 0 ];then
 		sed -i "/$grepStr/i\module(load=\"imfile\" PollingInterval=\"10\")" $configFile
-		#module(load="imfile" PollingInterval="10")
 		echo "\tOK  | module(load="imfile" PollingInterval="10")"
 		((restartRsyslog++))
 	fi
-	grep "^$localName.\* @$remoteIPPORT" $configFile >/dev/null
+	grep "^$localName.\* @$serverIPPORT" $configFile >/dev/null
 	if [ $? != 0 ];then
-		sed -i "/$grepStr/i\\$localName.* @$remoteIPPORT" $configFile
-		#local0.* @$remoteIPPORT
-		echo "\tOK  | $localName.* @$remoteIPPORT"
+		sed -i "/$grepStr/i\\$localName.* @$serverIPPORT" $configFile
+		echo "\tOK  | $localName.* @$serverIPPORT"
 		((restartRsyslog++))
 	fi
 	while read line
@@ -121,8 +123,7 @@ checkConfig(){
 		if [ $? != 0 ];then
 			tag=`echo ${logFile##*/}`
 			#echo "tag, $tag"
-			sed -i "/$localName.\* @$remoteIPPORT/i\input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")" $configFile
-			#input(type="imfile" File="/opt/bridge/log/node2.log" Tag="dcrm-node2" Severity="info" Facility="local0" freshStartTail="on" deleteStateOnFileDelete="on")
+			sed -i "/$localName.\* @$serverIPPORT/i\input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")" $configFile
 			echo "\tOK  | input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")"
 			((countLog++))
 			((restartRsyslog++))
@@ -136,7 +137,7 @@ checkConfig(){
 # ========== start ==========
 checkRsyslog
 checkIP
-echo "config rsyslog to remote"
+echo "config rsyslog client"
 echo
 
 checkArgs $1
