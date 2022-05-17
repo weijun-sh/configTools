@@ -102,13 +102,13 @@ checkConfig(){
 	if [ $? != 0 ];then
 		sed -i "/$grepStr/i\module(load=\"imfile\" PollingInterval=\"10\")" $configFile
 		echo "\tOK  | module(load="imfile" PollingInterval="10")"
-		((restartRsyslog++))
+		restartRsyslog=`expr $restartRsyslog + 1`
 	fi
 	grep "^$localName.\* @$serverIPPORT" $configFile >/dev/null
 	if [ $? != 0 ];then
 		sed -i "/$grepStr/i\\$localName.* @$serverIPPORT" $configFile
 		echo "\tOK  | $localName.* @$serverIPPORT"
-		((restartRsyslog++))
+		restartRsyslog=`expr $restartRsyslog + 1`
 	fi
 	while read line
 	do
@@ -118,15 +118,19 @@ checkConfig(){
 			echo "$ret"
 			continue
 		fi
-		logFile=`realpath $line`
+		if [ ! -L $line ];then
+			logFile=`realpath $line`
+		else
+			logFile=$line
+		fi
 		grep "type=\"imfile\" File=\"$logFile\"" $configFile >/dev/null
 		if [ $? != 0 ];then
 			tag=`echo ${logFile##*/}`
 			#echo "tag, $tag"
 			sed -i "/$localName.\* @$serverIPPORT/i\input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")" $configFile
 			echo "\tOK  | input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")"
-			((countLog++))
-			((restartRsyslog++))
+			countLog=`expr $countLog + 1`
+			restartRsyslog=`expr $restartRsyslog + 1`
 		else
 			echo "\tINFO| logFile '$line'($logFile) config exist"
 		fi
