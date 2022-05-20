@@ -11,6 +11,9 @@ serverIPPORT=$serverIP:$port
 
 argsCount=$#
 countLog=0
+countTotal=0
+countLogFailed=0
+countLogExist=0
 restartRsyslog=0
 
 checkIP(){
@@ -46,8 +49,15 @@ checkLog(){
 		echo "\tERR | logFile '$1' not exist"
 		return 1
 	fi
-	echo "OK"
+	file=`realpath $1`
+	echo $file|grep "^\/root\/" > /dev/null
+	if [ $? = 0 ];then
+		echo "\tERR | logFile '$1'(realpath $file) refused, /root/... Permission denied"
+		return 1
+	fi
+	return 0
 }
+
 checkOp(){
 	if [ "$1" != "list" ] && [ "$1" != "update" ];then
 		echo "ERR | args1 '$1' not support!"
@@ -74,9 +84,7 @@ checkArgs(){
 checkDefault(){
 	echo "3/3 - check $configFileDefault"
 	grep "$localName.none" $configFileDefault > /dev/null
-	if [ $? = 0 ];then
-		echo "\tOK"
-	else
+	if [ $? != 0 ];then
 		grep "^\*.\*" $configFileDefault > /dev/null
 		if [ $? != 0 ];then
 			echo "ERR | $configFileDefault is unrecognizable"
@@ -88,6 +96,7 @@ checkDefault(){
 		sed -i "s#$retreplace#$retreplace;$localName.none#g" $configFileDefault
 		echo "\tUpdate | $retreplace;$localName.none"
 	fi
+	echo "\tOK"
 }
 
 checkConfig(){
@@ -113,9 +122,10 @@ checkConfig(){
 	while read line
 	do
 		#echo "$line"
-		ret=`checkLog $line`
-		if [ "$ret" != "OK" ];then
-			echo "$ret"
+		countTotal=`expr $countTotal + 1`
+		checkLog $line
+		if [ $? != 0 ];then
+			countLogFailed=`expr $countLogFailed + 1`
 			continue
 		fi
 		if [ ! -L $line ];then
@@ -132,6 +142,7 @@ checkConfig(){
 			countLog=`expr $countLog + 1`
 			restartRsyslog=`expr $restartRsyslog + 1`
 		else
+			countLogExist=`expr $countLogExist + 1`
 			echo "\tINFO| logFile '$line'($logFile) config exist"
 		fi
 	done < $logFiles
@@ -141,14 +152,22 @@ checkConfig(){
 # ========== start ==========
 checkRsyslog
 checkIP
-echo "config rsyslog client"
+echo "\nconfig rsyslog client"
 echo
 
 checkArgs $1
 checkConfig
 checkDefault
-echo "\nrsyslog add $countLog file(s)"
+
+echo "\n\nSummary"
+echo "=============================="
+echo "\tadded    $countLog"
+echo "\texist    $countLogExist"
+echo "\trefused  $countLogFailed"
+echo "=============================="
+echo "\ttotal    $countTotal  file(s)\n"
 
 if [ $restartRsyslog != 0 ];then
 	systemctl restart rsyslog
+	echo "restarted rsyslg\n"
 fi
