@@ -135,7 +135,11 @@ checkConfig(){
 		fi
 		grep "type=\"imfile\" File=\"$logFile\"" $configFile >/dev/null
 		if [ $? != 0 ];then
-			tag=`echo ${logFile##*/}`
+			last=`echo ${logFile##*/}`
+			tmp=`echo ${logFile%/*}`
+			tmp=`echo ${tmp%/*}`
+			tag=`echo ${tmp##*/}`
+			tag="$tag-$last"
 			#echo "tag, $tag"
 			sed -i "/$localName.\* @$serverIPPORT/i\input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")" $configFile
 			echo "\tOK  | input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")"
