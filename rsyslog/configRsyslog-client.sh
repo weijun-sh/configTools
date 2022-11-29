@@ -1,6 +1,16 @@
 #!/bin/sh
-serverIP=""
-port=""
+while read line; do
+	eval "$line"
+done < server.toml
+
+echo "serverIP=$serverIP" > /dev/null
+echo "port=$port" > /dev/null
+
+if [ -z $serverIP ] || [ -z $port ]; then
+	echo "server.toml: serverIP or port is nil"
+	exit
+fi
+
 logFiles=logFilesList
 
 configFile=/etc/rsyslog.conf
@@ -113,10 +123,10 @@ checkConfig(){
 		echo "\tOK  | module(load="imfile" PollingInterval="10")"
 		restartRsyslog=`expr $restartRsyslog + 1`
 	fi
-	grep "^$localName.\* @$serverIPPORT" $configFile >/dev/null
+	grep "^$localName.\* @@$serverIPPORT" $configFile >/dev/null
 	if [ $? != 0 ];then
-		sed -i "/$grepStr/i\\$localName.* @$serverIPPORT" $configFile
-		echo "\tOK  | $localName.* @$serverIPPORT"
+		sed -i "/$grepStr/i\\$localName.* @@$serverIPPORT" $configFile
+		echo "\tOK  | $localName.* @@$serverIPPORT"
 		restartRsyslog=`expr $restartRsyslog + 1`
 	fi
 	while read line
@@ -137,8 +147,8 @@ checkConfig(){
 		if [ $? != 0 ];then
 			tag=`echo ${logFile##*/}`
 			#echo "tag, $tag"
-			sed -i "/$localName.\* @$serverIPPORT/i\input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")" $configFile
-			echo "\tOK  | input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\")"
+			sed -i "/$localName.\* @@$serverIPPORT/i\input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\" reopenOnTruncate=\"on\")" $configFile
+			echo "\tOK  | input(type=\"imfile\" File=\"$logFile\" Tag=\"$tag\" Severity=\"info\" Facility=\"$localName\" freshStartTail=\"on\" deleteStateOnFileDelete=\"on\" reopenOnTruncate=\"on\")"
 			countLog=`expr $countLog + 1`
 			restartRsyslog=`expr $restartRsyslog + 1`
 		else
